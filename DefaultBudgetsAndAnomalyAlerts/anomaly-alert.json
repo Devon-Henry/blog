@@ -1,0 +1,163 @@
+{
+    "policyType": "Custom",
+    "mode": "All",
+    "displayName": "Deploy a anomaly cost alert on all subscriptions under the assigned scope",
+    "description": "Deploy a anomaly cost alert on all subscriptions under the assigned scope",
+    "metadata": {
+        "version": "1.0.0",
+        "category": "Budget",
+        "alzCloudEnvironments": [
+            "AzureCloud",
+            "AzureUSGovernment"
+        ]
+    },
+    "parameters": {
+        "effect": {
+            "type": "String",
+            "defaultValue": "DeployIfNotExists",
+            "allowedValues": [
+                "DeployIfNotExists",
+                "AuditIfNotExists",
+                "Disabled"
+            ],
+            "metadata": {
+                "description": "Enable or disable the execution of the policy"
+            }
+        },
+        "alertDisplayName": {
+            "type": "String",
+            "defaultValue": "",
+            "metadata": {
+                "displayName": "Alert Display Name",
+                "description": "The display name of the insight alert."
+            }
+        },
+        "notificationEmail": {
+            "type": "String",
+            "defaultValue": "",
+            "metadata": {
+                "displayName": "Notification Email",
+                "description": "Email addresses to notify."
+            }
+        },
+        "scheduleFrequency": {
+            "type": "String",
+            "defaultValue": "Daily",
+            "metadata": {
+                "displayName": "Schedule Frequency",
+                "description": "Frequency of the alert."
+            }
+        },
+        "recipients": {
+            "type": "Array",
+            "defaultValue": [""],
+            "metadata": {
+                "displayName": "Notification Recipients",
+                "description": "List of email addresses to notify."
+            }
+        }
+    },
+    "policyRule": {
+        "if": {
+            "allOf": [
+                {
+                    "field": "type",
+                    "equals": "Microsoft.Resources/subscriptions"
+                }
+            ]
+        },
+        "then": {
+            "effect": "[parameters('effect')]",
+            "details": {
+                "type": "Microsoft.CostManagement/scheduledActions",
+                "deploymentScope": "subscription",
+                "existenceScope": "subscription",
+                "existenceCondition": {
+                    "allOf": [
+                        {
+                            "field": "Microsoft.CostManagement/scheduledActions/displayName",
+                            "equals": "[parameters('alertDisplayName')]"
+                        }
+                    ]
+                },
+                "roleDefinitionIds": [
+                    "/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c"
+                ],
+                "deployment": {
+                    "location": "uksouth",
+                    "properties": {
+                        "mode": "Incremental",
+                        "parameters": {
+                            "alertDisplayName": {
+                                "value": "[parameters('alertDisplayName')]"
+                            },
+                            "notificationEmail": {
+                                "value":"[parameters('notificationEmail')]"
+                            },
+                            "scheduleFrequency":{
+                                "value":"[parameters('scheduleFrequency')]"
+                            },
+                            "recipients": {
+                                "value":"[parameters('recipients')]"
+                            }
+                        },
+                        "template": {
+                            "$schema": "http://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json",
+                            "contentVersion": "1.0.0.0",
+                            "parameters": {
+                                "alertDisplayName": {
+                                    "type": "String"
+                                },
+                                "notificationEmail": {
+                                    "type": "String"
+                                },
+                                "scheduleFrequency": {
+                                    "type": "String"
+                                },
+                                "recipients": {
+                                    "type": "Array"
+                                },
+                                "startDate" : {
+                                    "type": "String",
+                                    "defaultValue": "[dateTimeAdd(utcnow('yyyy-MM-dd THH:mm:ss zzzz'), 'PT1H')]"
+                                },
+                                "endDate" : {
+                                    "type": "String",
+                                    "defaultValue": "[dateTimeAdd(utcnow('yyyy-MM-dd THH:mm:ss zzzz'), 'P2Y')]"
+                                },
+                                "scope": {
+                                    "type":"String",
+                                    "defaultValue": "[subscription().id]"
+                                }
+                            },
+                            
+                            "resources": [
+                                {
+                                    "type": "Microsoft.CostManagement/scheduledActions",
+                                    "apiVersion": "2022-10-01",
+                                    "name": "[parameters('alertDisplayName')]",
+                                    "kind": "InsightAlert",
+                                    "properties": {
+                                        "status": "enabled",
+                                        "displayName": "[parameters('alertDisplayName')]",
+                                        "notificationEmail": "[parameters('notificationEmail')]",
+                                        "notification": {
+                                            "to": "[parameters('recipients')]",
+                                            "subject": "[concat('Cost anomaly detected by anomaly alert: ', parameters('alertDisplayName'))]"
+                                        },
+                                        "schedule": {
+                                            "frequency": "[parameters('scheduleFrequency')]",
+                                            "startDate": "[parameters('startDate')]",
+                                            "endDate": "[parameters('endDate')]"
+                                        },
+                                        "viewId": "[resourceId('Microsoft.CostManagement/views/','ms:DailyAnomalyByResourceGroup')]"       
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
